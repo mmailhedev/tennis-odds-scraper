@@ -1,0 +1,44 @@
+{
+  "oddsportal": {
+    "name": "Oddsportal",
+    "base_url": "https://www.oddsportal.com",
+    "tennis_url": "https://www.oddsportal.com/tennis/",
+    "rate_limit": 2.0,
+    "timeout": 30,
+    "max_retries": 3,
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Connection": "keep-alive",
+      "Upgrade-Insecure-Requests": "1"
+    }
+  },
+  "bet365": {
+    "name": "Bet365",
+    "base_url": "https://www.bet365.com",
+    "tennis_url": "https://www.bet365.com/sport/tennis",
+    "rate_limit": 3.0,
+    "timeout": 30,
+    "max_retries": 3,
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    },
+    "notes": "Configuration ready - scraper implementation needed"
+  },
+  "unibet": {
+    "name": "Unibet",
+    "base_url": "https://www.unibet.fr",
+    "tennis_url": "https://www.unibet.fr/sport/tennis",
+    "rate_limit": 2.5,
+    "timeout": 30,
+    "max_retries": 3,
+    "headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    },
+    "notes": "Configuration ready - scraper implementation needed"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "oddsportal": {
+    "description": "Scraping rules for Oddsportal tennis section",
+    "match_container": "//div[contains(@class, 'eventRow')]",
+    "tournament_name": ".//div[contains(@class, 'event__header')]//div[contains(@class, 'event__title')]/text()",
+    "player1_name": ".//div[contains(@class, 'participant__participantName--home')]/text()",
+    "player2_name": ".//div[contains(@class, 'participant__participantName--away')]/text()",
+    "odds_player1": ".//div[contains(@class, 'odds-home')]//span/text()",
+    "odds_player2": ".//div[contains(@class, 'odds-away')]//span/text()",
+    "match_time": ".//div[contains(@class, 'event__time')]/text()",
+    "match_date": ".//div[contains(@class, 'event__date')]/text()",
+    "css_selectors": {
+      "match_row": "div.eventRow",
+      "tournament": "div.event__title",
+      "player1": "div.participant__participantName--home",
+      "player2": "div.participant__participantName--away",
+      "odds1": "div.odds-home span",
+      "odds2": "div.odds-away span"
+    },
+    "notes": "Oddsportal uses dynamic loading. Selectors may need adjustment based on page structure."
+  },
+  "bet365": {
+    "description": "Scraping rules for Bet365 tennis section",
+    "match_container": "//div[contains(@class, 'sl-MarketCouponItem')]",
+    "player1_name": ".//div[contains(@class, 'participant1')]/span/text()",
+    "player2_name": ".//div[contains(@class, 'participant2')]/span/text()",
+    "odds_player1": ".//span[contains(@class, 'odds1')]/text()",
+    "odds_player2": ".//span[contains(@class, 'odds2')]/text()",
+    "css_selectors": {
+      "match_row": "div.sl-MarketCouponItem",
+      "player1": "div.participant1 span",
+      "player2": "div.participant2 span",
+      "odds1": "span.odds1",
+      "odds2": "span.odds2"
+    },
+    "notes": "Bet365 requires authentication. Scraper implementation needed with session handling."
+  },
+  "unibet": {
+    "description": "Scraping rules for Unibet tennis section",
+    "match_container": "//div[contains(@class, 'KambiBC-event-item')]",
+    "player1_name": ".//div[contains(@class, 'participant-name')][1]/text()",
+    "player2_name": ".//div[contains(@class, 'participant-name')][2]/text()",
+    "odds_player1": ".//button[contains(@class, 'outcome')][1]//span/text()",
+    "odds_player2": ".//button[contains(@class, 'outcome')][2]//span/text()",
+    "css_selectors": {
+      "match_row": "div.KambiBC-event-item",
+      "player1": "div.participant-name:first-child",
+      "player2": "div.participant-name:last-child",
+      "odds1": "button.outcome:first-child span",
+      "odds2": "button.outcome:last-child span"
+    },
+    "notes": "Unibet uses Kambi platform. Structure may vary by region."
+  },
+  "generic": {
+    "description": "Generic fallback rules for unknown bookmakers",
+    "common_patterns": {
+      "player_names": [
+        "//div[contains(@class, 'player')]",
+        "//span[contains(@class, 'participant')]",
+        "//div[contains(@class, 'competitor')]"
+      ],
+      "odds": [
+        "//span[contains(@class, 'odd')]",
+        "//div[contains(@class, 'price')]",
+        "//button[contains(@class, 'bet')]"
+      ]
+    },
+    "notes": "Use as starting point for new bookmaker implementations"
+  }
+}
