@@ -1,36 +1,12 @@
 """
-Utilities package for tennis odds scraper.
-Contains logging, helper functions, and common utilities.
+Scrapers package for tennis odds collection.
+Contains base scraper class and bookmaker-specific implementations.
 """
 
-from .logger import get_logger
-from .helpers import (
-    load_json_config,
-    save_json,
-    ensure_directory,
-    retry_on_failure,
-    rate_limiter,
-    parse_odds,
-    clean_player_name,
-    format_timestamp,
-    calculate_implied_probability,
-    calculate_bookmaker_margin,
-    validate_match_data,
-    Timer
-)
+from .base_scraper import BaseScraper
+from .oddsportal_scraper import OddsportalScraper
 
 __all__ = [
-    'get_logger',
-    'load_json_config',
-    'save_json',
-    'ensure_directory',
-    'retry_on_failure',
-    'rate_limiter',
-    'parse_odds',
-    'clean_player_name',
-    'format_timestamp',
-    'calculate_implied_probability',
-    'calculate_bookmaker_margin',
-    'validate_match_data',
-    'Timer'
+    'BaseScraper',
+    'OddsportalScraper'
 ]

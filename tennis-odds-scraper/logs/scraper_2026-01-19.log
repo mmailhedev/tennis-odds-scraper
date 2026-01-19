@@ -1,0 +1,9 @@
+2026-01-19 17:14:15 - utils.helpers - DEBUG - Loaded configuration from config/bookmakers.json
+2026-01-19 17:14:15 - utils.helpers - DEBUG - Loaded configuration from config/scraping_rules.json
+2026-01-19 17:14:15 - scraper.oddsportal - INFO - Initialized oddsportal scraper
+2026-01-19 17:14:15 - utils.helpers - INFO - Starting: Scraping oddsportal
+2026-01-19 17:14:15 - scraper.oddsportal - DEBUG - Fetching: https://www.oddsportal.com/tennis/
+2026-01-19 17:14:17 - scraper.oddsportal - WARNING - No match rows found. Page structure may have changed.
+2026-01-19 17:14:17 - scraper.oddsportal - INFO - Successfully scraped 0 matches
+2026-01-19 17:14:17 - utils.helpers - INFO - Completed: Scraping oddsportal in 2.42s
+2026-01-19 17:14:17 - scraper.oddsportal - INFO - Closed oddsportal scraper

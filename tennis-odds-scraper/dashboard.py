@@ -48,13 +48,20 @@ st.markdown("""
 
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
-def scrape_odds(bookmaker):
-    """Scrape odds with caching"""
-    if bookmaker == "Oddsportal":
-        with OddsportalScraper() as scraper:
+def scrape_odds(bookmaker, use_demo_mode=True):
+    """Scrape odds with demo/production toggle"""
+    if use_demo_mode:
+        # Use demo scraper for stable presentations
+        from scrapers.demo_scraper import DemoScraper
+        with DemoScraper() as scraper:
             matches = scraper.scrape_tennis_matches()
-        return matches
-    return []
+    else:
+        # Use real scraper - may fail if site structure changed
+        if bookmaker == "Oddsportal":
+            with OddsportalScraper() as scraper:
+                matches = scraper.scrape_tennis_matches()
+    
+    return matches
 
 
 def calculate_metrics(df):
@@ -178,6 +185,26 @@ def main():
         
         st.divider()
         
+        # ========== NOUVEAU: DATA MODE TOGGLE ==========
+        # Data mode selector
+        data_mode = st.radio(
+            "Data Source",
+            ["Demo Mode", "Production Mode"],
+            index=0,
+            help="Demo: Simulated data for stable presentations | Production: Real scraping (may fail)"
+        )
+        
+        # Visual feedback
+        if data_mode == "Demo Mode":
+            st.info("🎬 **Demo Mode Active**\n\nUsing simulated realistic data for stable demonstration.")
+            use_demo = True
+        else:
+            st.warning("⚠️ **Production Mode Active**\n\nAttempting real scraping. May fail if website changed.")
+            use_demo = False
+        
+        st.divider()
+        # ========== FIN DU NOUVEAU BLOC ==========
+        
         # Scraping controls
         st.subheader("🔄 Data Collection")
         
@@ -221,7 +248,9 @@ def main():
     # Main content
     if scrape_button or auto_refresh:
         with st.spinner(f"🔍 Scraping odds from {bookmaker}..."):
-            matches = scrape_odds(bookmaker)
+            # ========== MODIFIÉ: Appel avec use_demo ==========
+            matches = scrape_odds(bookmaker, use_demo)
+            # ========== FIN DE LA MODIFICATION ==========
             
             if not matches:
                 st.error("❌ No matches found. The website structure may have changed.")
