@@ -145,12 +145,16 @@ def create_implied_probability_chart(df):
     if df.empty:
         return go.Figure()
     
+    # Use absolute value of margin for size (avoid negative values)
+    df_plot = df.copy()
+    df_plot['margin_abs'] = df_plot['bookmaker_margin'].abs()
+    
     fig = px.scatter(
-        df,
+        df_plot,
         x='implied_prob1',
         y='implied_prob2',
         color='bookmaker_margin',
-        size='bookmaker_margin',
+        size='margin_abs',  # Use absolute value for size
         hover_data=['player1', 'player2', 'tournament'],
         title='Implied Probabilities Analysis',
         labels={
