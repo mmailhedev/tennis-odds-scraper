@@ -1,0 +1,18 @@
+# Tennis Odds Scraper - Environment Variables
+# IMPORTANT: Do NOT commit this file to GitHub (.gitignore should block it)
+
+# The Odds API Configuration
+# Your API key from https://the-odds-api.com/
+ODDS_API_KEY=dbfc435b509fdfc6748db6e78722654d
+
+# Optional: Default data mode for dashboard
+# Options: demo, production, api
+DEFAULT_DATA_MODE=demo
+
+# Optional: API server configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Optional: Logging level
+# Options: DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL=INFO
