@@ -1,6 +1,6 @@
 """
-The Odds API Scraper
-Fetches real-time tennis odds from The Odds API
+The Odds API Scraper - FIXED VERSION
+Fetches real-time tennis odds from The Odds API with automatic sport detection
 """
 
 import requests
@@ -17,6 +17,7 @@ class TheOddsAPIScraper:
     
     Features:
     - Real-time ATP & WTA match odds
+    - Automatic sport detection (handles changing tournament keys)
     - Multiple bookmakers (200+)
     - Match winner, spreads, totals markets
     - 500 free requests/month
@@ -25,13 +26,6 @@ class TheOddsAPIScraper:
     """
     
     BASE_URL = "https://api.the-odds-api.com/v4"
-    
-    # Available tennis sports
-    SPORTS = {
-        'ATP': 'tennis_atp',
-        'WTA': 'tennis_wta',
-        'ATP Challenger': 'tennis_atp_australian_open',  # During tournaments
-    }
     
     def __init__(self, api_key: str):
         """
@@ -46,6 +40,7 @@ class TheOddsAPIScraper:
         self.session.headers.update({
             'User-Agent': 'TennisOddsScraper/1.0'
         })
+        self._available_sports = None
     
     def __enter__(self):
         return self
@@ -88,6 +83,39 @@ class TheOddsAPIScraper:
             logger.error(f"API request failed: {e}")
             raise Exception(f"The Odds API error: {str(e)}")
     
+    def get_available_sports(self) -> List[Dict]:
+        """
+        Fetch list of available sports from API
+        
+        Returns:
+            List of available sports with their keys and active status
+        """
+        if self._available_sports is None:
+            logger.info("Fetching available sports from API...")
+            sports = self._make_request("sports")
+            self._available_sports = sports
+        
+        return self._available_sports
+    
+    def get_tennis_sports(self) -> List[str]:
+        """
+        Get all currently available tennis sport keys
+        
+        Returns:
+            List of active tennis sport keys (e.g., ['tennis_atp', 'tennis_wta'])
+        """
+        all_sports = self.get_available_sports()
+        
+        # Filter for active tennis sports
+        tennis_sports = [
+            sport['key'] 
+            for sport in all_sports 
+            if 'tennis' in sport['key'].lower() and sport.get('active', False)
+        ]
+        
+        logger.info(f"Available tennis sports: {tennis_sports}")
+        return tennis_sports
+    
     def get_tennis_odds(
         self, 
         sport: str = 'tennis_atp',
@@ -126,7 +154,7 @@ class TheOddsAPIScraper:
     ) -> List[Dict]:
         """
         Scrape tennis matches and convert to standard format
-        (Compatible with existing dashboard/API structure)
+        Automatically detects available tennis sports
         
         Args:
             include_atp: Include ATP matches
@@ -138,19 +166,38 @@ class TheOddsAPIScraper:
         all_matches = []
         
         try:
-            # Fetch ATP matches
-            if include_atp:
-                atp_raw = self.get_tennis_odds('tennis_atp')
-                atp_matches = self._transform_matches(atp_raw, 'ATP')
-                all_matches.extend(atp_matches)
-                logger.info(f"Fetched {len(atp_matches)} ATP matches")
+            # Get available tennis sports dynamically
+            available_sports = self.get_tennis_sports()
             
-            # Fetch WTA matches
-            if include_wta:
-                wta_raw = self.get_tennis_odds('tennis_wta')
-                wta_matches = self._transform_matches(wta_raw, 'WTA')
-                all_matches.extend(wta_matches)
-                logger.info(f"Fetched {len(wta_matches)} WTA matches")
+            if not available_sports:
+                logger.warning("⚠️ No active tennis sports found in API")
+                return []
+            
+            # Try to fetch odds for each available sport
+            for sport_key in available_sports:
+                # Filter by user preferences
+                if not include_atp and 'atp' in sport_key.lower():
+                    continue
+                if not include_wta and 'wta' in sport_key.lower():
+                    continue
+                
+                try:
+                    logger.info(f"Fetching odds for: {sport_key}")
+                    raw_matches = self.get_tennis_odds(sport_key)
+                    
+                    if raw_matches:
+                        # Determine tour type
+                        tour = 'ATP' if 'atp' in sport_key.lower() else 'WTA'
+                        
+                        transformed = self._transform_matches(raw_matches, tour, sport_key)
+                        all_matches.extend(transformed)
+                        logger.info(f"✅ Fetched {len(transformed)} matches from {sport_key}")
+                    else:
+                        logger.info(f"ℹ️ No matches available for {sport_key}")
+                
+                except Exception as e:
+                    logger.warning(f"Failed to fetch {sport_key}: {e}")
+                    continue
             
             logger.info(f"Total matches scraped: {len(all_matches)}")
             
@@ -160,13 +207,14 @@ class TheOddsAPIScraper:
             logger.error(f"Failed to scrape matches: {e}")
             raise
     
-    def _transform_matches(self, api_matches: List[Dict], tour: str) -> List[Dict]:
+    def _transform_matches(self, api_matches: List[Dict], tour: str, sport_key: str) -> List[Dict]:
         """
         Transform The Odds API format to our standard format
         
         Args:
             api_matches: Raw matches from API
             tour: Tournament tour (ATP/WTA)
+            sport_key: Sport key used (for tournament identification)
             
         Returns:
             List of matches in standard format
@@ -182,11 +230,14 @@ class TheOddsAPIScraper:
                 # Get best odds from all bookmakers
                 odds_data = self._extract_best_odds(match.get('bookmakers', []))
                 
+                # Determine tournament name from sport_key
+                tournament = self._parse_tournament_name(match.get('sport_title', ''), sport_key, tour)
+                
                 # Build standard match dict
                 match_dict = {
                     'player1': player1,
                     'player2': player2,
-                    'tournament': match.get('sport_title', f'{tour} Tournament'),
+                    'tournament': tournament,
                     'match_time': self._parse_datetime(match.get('commence_time')),
                     'odds_player1': odds_data['odds_player1'],
                     'odds_player2': odds_data['odds_player2'],
@@ -195,10 +246,11 @@ class TheOddsAPIScraper:
                         odds_data['odds_player1'],
                         odds_data['odds_player2']
                     ),
-                    'url': f"https://the-odds-api.com",  # Generic URL
+                    'url': f"https://the-odds-api.com",
                     'source': 'The Odds API (Live)',
                     'bookmakers_count': len(match.get('bookmakers', [])),
                     'api_match_id': match.get('id'),
+                    'sport_key': sport_key,
                     'last_update': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 
@@ -209,6 +261,33 @@ class TheOddsAPIScraper:
                 continue
         
         return transformed
+    
+    def _parse_tournament_name(self, sport_title: str, sport_key: str, tour: str) -> str:
+        """
+        Parse tournament name from sport_title and sport_key
+        
+        Args:
+            sport_title: Sport title from API
+            sport_key: Sport key (e.g., tennis_atp_aus_open_singles)
+            tour: Tour type (ATP/WTA)
+            
+        Returns:
+            Formatted tournament name
+        """
+        if sport_title and sport_title != f'{tour} Tennis':
+            return sport_title
+        
+        # Try to extract from sport_key
+        if 'aus_open' in sport_key or 'australian_open' in sport_key:
+            return f'{tour} Australian Open'
+        elif 'wimbledon' in sport_key:
+            return f'{tour} Wimbledon'
+        elif 'us_open' in sport_key:
+            return f'{tour} US Open'
+        elif 'french_open' in sport_key or 'roland_garros' in sport_key:
+            return f'{tour} French Open'
+        else:
+            return f'{tour} Tournament'
     
     def _extract_best_odds(self, bookmakers: List[Dict]) -> Dict:
         """
@@ -326,6 +405,19 @@ if __name__ == "__main__":
     
     with TheOddsAPIScraper(api_key) as scraper:
         try:
+            # First, show available sports
+            print("\n🔍 Checking available tennis sports...")
+            tennis_sports = scraper.get_tennis_sports()
+            
+            if tennis_sports:
+                print(f"✅ Found {len(tennis_sports)} active tennis sport(s):")
+                for sport in tennis_sports:
+                    print(f"   • {sport}")
+            else:
+                print("⚠️  No active tennis sports found (might be off-season)")
+            
+            # Try to scrape matches
+            print("\n📊 Fetching matches...")
             matches = scraper.scrape_tennis_matches()
             
             print(f"\n✅ Successfully scraped {len(matches)} matches")
@@ -336,11 +428,13 @@ if __name__ == "__main__":
                 sample = matches[0]
                 print(f"  {sample['player1']} vs {sample['player2']}")
                 print(f"  Tournament: {sample['tournament']}")
+                print(f"  Sport Key: {sample['sport_key']}")
                 print(f"  Odds: {sample['odds_player1']} / {sample['odds_player2']}")
                 print(f"  Bookmaker: {sample['bookmaker']}")
                 print(f"  Margin: {sample['bookmaker_margin']}%")
+                print(f"  Time: {sample['match_time']}")
             else:
-                print("\n⚠️  No live matches found (may be off-season)")
+                print("\n⚠️  No live matches found")
         
         except Exception as e:
             print(f"\n❌ Error: {e}")
