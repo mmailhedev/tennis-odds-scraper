@@ -8,9 +8,9 @@ A professional-grade web scraping and data analysis platform for tennis betting 
 
 ---
 
-## 🎬 Demo vs Production Mode
+## 🎬 Data Sources & Modes
 
-This project includes **two data modes** for maximum flexibility and reliability:
+This project supports **multiple data sources** for maximum flexibility and reliability:
 
 ### Demo Mode (Default) ✅
 - **Simulated realistic data** for stable demonstrations
@@ -19,22 +19,30 @@ This project includes **two data modes** for maximum flexibility and reliability
 - 12 realistic tennis matches with varied odds
 - Includes top ATP/WTA players (Djokovic, Alcaraz, Sinner, Swiatek, etc.)
 
-### Production Mode ⚙️
+### Production Mode - Web Scraping ⚙️
 - **Real web scraping** from Oddsportal
 - May require updates if website structure changes
 - Full scraping implementation visible in code
 - Toggle available in dashboard sidebar
 
-**Why both modes?**
+### Production Mode - The Odds API 🆕 ⭐
+- **Real-time odds data** from 200+ bookmakers via official API
+- **500 free requests/month** (no credit card required)
+- **100% reliable** - no scraping maintenance needed
+- Automatic tournament detection (ATP, WTA, Grand Slams)
+- Always up-to-date with current matches
+- Get your free API key at: https://the-odds-api.com
+
+**Why multiple modes?**
 
 This is a **professional software engineering practice**:
-- **Reliability**: Demos never break due to external site changes
+- **Reliability**: Demos never break due to external dependencies
 - **Flexibility**: Easy to swap data sources (scraping, API, database)
 - **Separation of Concerns**: Business logic independent from data acquisition
 - **Industry Standard**: Same approach used by production apps (dev/staging/prod environments)
 
 **What matters most:**
-The core value is the **architecture and features**, not the scraping itself:
+The core value is the **architecture and features**, not just the data source:
 - 🏗️ Clean, modular architecture
 - 📊 Interactive dashboard with real-time visualization
 - 🔌 Professional REST API with auto-documentation
@@ -49,7 +57,7 @@ The core value is the **architecture and features**, not the scraping itself:
 ### 📊 1. Interactive Dashboard (Streamlit)
 Real-time visualization and analysis interface
 - Interactive Plotly charts with hover details
-- Demo/Production mode toggle
+- Demo/Production mode toggle with multiple data sources
 - Auto-refresh for live odds monitoring (30s intervals)
 - Advanced filtering (margin, odds, tournament)
 - Best value bets identification
@@ -74,24 +82,26 @@ Advanced market analysis and opportunity detection
 - Comprehensive market reports
 - Bookmaker performance analysis
 
-### ⚙️ Core Scraping Engine
-Robust and extensible data collection
-- Modular architecture (easy to add bookmakers)
-- Configuration-based setup (JSON)
+### ⚙️ Data Collection Options
+Flexible and extensible data acquisition
+- **Demo Mode**: Instant simulated data
+- **Web Scraping**: Oddsportal integration
+- **The Odds API**: Real-time data from 200+ bookmakers
+- Modular architecture (easy to add sources)
 - Automatic retry logic with exponential backoff
 - Rate limiting and ethical scraping
 - Comprehensive error handling
-- Detailed logging system
 
 ---
 
 ## 🛠️ Tech Stack
 
-**Backend & Scraping:**
+**Backend & Data Collection:**
 - Python 3.11+
 - BeautifulSoup4 & lxml (HTML parsing)
 - Requests (HTTP)
 - Pandas (data processing)
+- The Odds API (real-time odds data)
 
 **Dashboard:**
 - Streamlit (web interface)
@@ -125,6 +135,18 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### Setup The Odds API (Optional - for Production Mode)
+
+```bash
+# 1. Get free API key at https://the-odds-api.com (500 requests/month free)
+
+# 2. Create .env file in project root
+echo "ODDS_API_KEY=your_api_key_here" > .env
+
+# 3. Test the API
+python scrapers/theodds_scraper.py
+```
+
 ### Basic Usage
 
 #### 1. Launch Dashboard (Recommended)
@@ -135,23 +157,35 @@ Opens at http://localhost:8501
 
 **In the dashboard:**
 - Select **Demo Mode** (default) for reliable presentation
-- Or **Production Mode** to test real scraping
+- Or **Production Mode - Web Scraping** to test scraping
+- Or **Production Mode - The Odds API** for real-time data
 - Click **"Scrape Now"** to fetch data
 - Explore charts, filter matches, export data
 
-#### 2. Start API Server
+#### 2. Test The Odds API Directly
+```bash
+# Quick test to see available tennis tournaments
+python scrapers/theodds_scraper.py
+
+# Output example:
+# 🎾 Available tennis sports:
+#   • tennis_atp_aus_open_singles (ATP Australian Open)
+#   • tennis_wta_aus_open_singles (WTA Australian Open)
+```
+
+#### 3. Start API Server
 ```bash
 python api.py
 ```
 - API at http://localhost:8000  
 - Docs at http://localhost:8000/docs
 
-#### 3. Run Arbitrage Detector
+#### 4. Run Arbitrage Detector
 ```bash
 python comparator.py
 ```
 
-#### 4. Command Line Scraping
+#### 5. Command Line Scraping
 ```bash
 python main.py --format excel --summary
 ```
@@ -164,6 +198,7 @@ python main.py --format excel --summary
 - **[FEATURES_GUIDE.md](FEATURES_GUIDE.md)** - Complete feature documentation
 - **[EXAMPLES.md](EXAMPLES.md)** - Code examples and use cases
 - **[DATA_MODES.md](DATA_MODES.md)** - Demo vs Production explained
+- **[API_MODE_README.md](API_MODE_README.md)** - The Odds API integration guide
 - **[COMMANDS.md](COMMANDS.md)** - Command reference
 
 ---
@@ -178,8 +213,9 @@ tennis-odds-scraper/
 ├── main.py                             # CLI scraper
 ├── scrapers/
 │   ├── base_scraper.py                # Abstract base class
-│   ├── oddsportal_scraper.py          # Production scraper
-│   └── demo_scraper.py                # Demo data generator ⭐
+│   ├── oddsportal_scraper.py          # Web scraping (Oddsportal)
+│   ├── theodds_scraper.py             # The Odds API integration ⭐
+│   └── demo_scraper.py                # Demo data generator
 ├── exporters/
 │   ├── csv_exporter.py                # CSV export
 │   └── excel_exporter.py              # Excel with formatting
@@ -189,6 +225,7 @@ tennis-odds-scraper/
 ├── config/
 │   ├── bookmakers.json                # Bookmaker configs
 │   └── scraping_rules.json            # CSS selectors
+├── .env.example                        # Environment variables template
 └── requirements.txt                    # Dependencies
 ```
 
@@ -196,7 +233,25 @@ tennis-odds-scraper/
 
 ## 💡 Use Cases
 
-### 1. Market Analysis
+### 1. Real-time Data via The Odds API
+```python
+from scrapers.theodds_scraper import TheOddsAPIScraper
+import os
+
+api_key = os.getenv('ODDS_API_KEY')
+
+with TheOddsAPIScraper(api_key) as scraper:
+    # Automatically detects available tennis sports
+    matches = scraper.scrape_tennis_matches()
+    
+    for match in matches:
+        print(f"{match['player1']} vs {match['player2']}")
+        print(f"Tournament: {match['tournament']}")
+        print(f"Odds: {match['odds_player1']} / {match['odds_player2']}")
+        print(f"Best bookmaker: {match['bookmaker']}")
+```
+
+### 2. Market Analysis (Demo Mode)
 ```python
 from scrapers.demo_scraper import DemoScraper
 import pandas as pd
@@ -208,7 +263,7 @@ df = pd.DataFrame(matches)
 print(f"Average margin: {df['bookmaker_margin'].mean():.2f}%")
 ```
 
-### 2. API Integration
+### 3. API Integration
 ```python
 import requests
 
@@ -218,7 +273,7 @@ for match in response.json():
     print(f"Margin: {match['bookmaker_margin']}%")
 ```
 
-### 3. Arbitrage Detection
+### 4. Arbitrage Detection
 ```python
 from comparator import OddsComparator
 
@@ -247,6 +302,38 @@ with OddsComparator() as comparator:
 
 ---
 
+## 🔑 The Odds API - Key Features
+
+### Why Use The Odds API?
+
+✅ **Zero Maintenance** - No scraping to break  
+✅ **Always Current** - Real-time tournament data  
+✅ **Multiple Bookmakers** - 200+ sources in one call  
+✅ **Free Tier** - 500 requests/month (perfect for demos)  
+✅ **Automatic Detection** - Finds active tournaments (Grand Slams, ATP, WTA)  
+
+### How It Works
+
+The scraper automatically:
+1. Fetches available tennis sports from API
+2. Filters for active tournaments
+3. Adapts to current events (Australian Open, Wimbledon, etc.)
+4. Never breaks between tournaments
+
+**Example during Australian Open:**
+```
+✅ tennis_atp_aus_open_singles → ATP Australian Open
+✅ tennis_wta_aus_open_singles → WTA Australian Open
+```
+
+**Example during Wimbledon:**
+```
+✅ tennis_atp_wimbledon_singles → ATP Wimbledon
+✅ tennis_wta_wimbledon_singles → WTA Wimbledon
+```
+
+---
+
 ## ⚖️ Legal & Ethics
 
 - Respect robots.txt files
@@ -256,11 +343,15 @@ with OddsComparator() as comparator:
 
 **For portfolio/demonstrations**, Demo Mode is recommended to avoid legal concerns while showcasing technical skills.
 
+**The Odds API** is an official, legal data source with explicit permission for use.
+
 ---
 
 ## 📈 Performance
 
 - **Demo mode**: Instant (no network calls)
+- **The Odds API**: ~200-500ms per request
+- **Web scraping**: 5-15s depending on network
 - **API response**: <100ms average
 - **Dashboard**: Real-time updates
 - **Memory usage**: ~50MB typical
@@ -271,6 +362,18 @@ with OddsComparator() as comparator:
 
 - **Dashboard**: http://localhost:8501
 - **API Docs**: http://localhost:8000/docs
+- **The Odds API**: https://the-odds-api.com
+
+---
+
+## 🆕 Recent Updates
+
+### v2.0 - The Odds API Integration
+- Added official API integration for production use
+- Automatic tournament detection (no more 404 errors)
+- 500 free requests/month tier
+- Zero maintenance required
+- Real-time data from 200+ bookmakers
 
 ---
 
