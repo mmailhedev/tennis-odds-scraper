@@ -14,11 +14,20 @@ import os
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Import scrapers
 from scrapers.demo_scraper import DemoScraper
-from scrapers.oddsportal_scraper import OddsPortalScraper
+from scrapers.oddsportal_scraper import OddsportalScraper
 from scrapers.theodds_scraper import TheOddsAPIScraper
+
+# Import exporters
 from exporters.csv_exporter import CSVExporter
-from exporters.excel_exporter import ExcelExporter
+
+# Try to import Excel exporter
+try:
+    from exporters.excel_exporter import ExcelExporter
+    EXCEL_EXPORT_AVAILABLE = True
+except ImportError:
+    EXCEL_EXPORT_AVAILABLE = False
 
 # Page configuration
 st.set_page_config(
@@ -52,8 +61,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
-if 'matches_df' not in st.session_state:
-    st.session_state.matches_df = None
+if 'raw_matches_df' not in st.session_state:
+    st.session_state.raw_matches_df = None
 if 'last_scrape_time' not in st.session_state:
     st.session_state.last_scrape_time = None
 if 'data_mode' not in st.session_state:
@@ -72,33 +81,34 @@ def get_mode_badge(mode: str) -> str:
     return f'<span class="data-mode-badge {mode_classes.get(mode, "")}">{mode}</span>'
 
 
-def scrape_data(mode: str, api_key: str = None) -> pd.DataFrame:
-    """
-    Scrape tennis matches based on selected mode
+def calculate_bookmaker_margin(odds1: float, odds2: float) -> float:
+    """Calculate bookmaker margin from odds"""
+    if odds1 <= 0 or odds2 <= 0:
+        return 0.0
     
-    Args:
-        mode: Data source mode
-        api_key: The Odds API key (required for API mode)
-        
-    Returns:
-        DataFrame with matches
-    """
+    implied_prob_sum = (1 / odds1) + (1 / odds2)
+    margin = (implied_prob_sum - 1) * 100
+    
+    return round(margin, 2)
+
+
+def scrape_data(mode: str, api_key: str = None) -> pd.DataFrame:
+    """Scrape tennis matches based on selected mode"""
     with st.spinner(f'Fetching data from {mode}...'):
         try:
+            matches = []
+            
             if mode == 'Demo Mode':
-                # Demo mode - simulated data
                 with DemoScraper() as scraper:
                     matches = scraper.scrape_tennis_matches()
                     st.success(f"✅ Loaded {len(matches)} demo matches")
             
             elif mode == 'Production Mode':
-                # Production scraping from Oddsportal
-                with OddsPortalScraper() as scraper:
+                with OddsportalScraper() as scraper:
                     matches = scraper.scrape_tennis_matches()
                     st.success(f"✅ Scraped {len(matches)} matches from Oddsportal")
             
             elif mode == 'API Mode (Live)':
-                # Live API mode
                 if not api_key:
                     st.error("❌ API key required for API Mode")
                     st.info("👉 Get your free API key at: https://the-odds-api.com/")
@@ -110,28 +120,45 @@ def scrape_data(mode: str, api_key: str = None) -> pd.DataFrame:
                         include_wta=True
                     )
                     
-                    # Show API status
                     status = scraper.get_api_status()
                     if status['requests_remaining']:
                         st.info(f"📊 API Requests Remaining: {status['requests_remaining']}/{status['free_tier_limit']}")
                     
                     if matches:
-                        st.success(f"✅ Fetched {len(matches)} live matches from The Odds API")
+                        st.success(f"✅ Fetched {len(matches)} live matches")
                     else:
-                        st.warning("⚠️ No live matches found (may be off-season or no tournaments active)")
+                        st.warning("⚠️ No live matches found")
             
-            # Convert to DataFrame
             if matches:
                 df = pd.DataFrame(matches)
+                
+                # Ensure bookmaker_margin exists
+                if 'bookmaker_margin' not in df.columns:
+                    df['bookmaker_margin'] = df.apply(
+                        lambda row: calculate_bookmaker_margin(row['odds_player1'], row['odds_player2']), 
+                        axis=1
+                    )
+                
                 st.session_state.last_scrape_time = datetime.now()
                 return df
             else:
-                st.warning("No matches found")
                 return pd.DataFrame()
         
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
             return pd.DataFrame()
+
+
+def apply_filters(df: pd.DataFrame, tournament_filter: str, margin_filter: float) -> pd.DataFrame:
+    """Apply filters to dataframe without modifying session state"""
+    filtered = df.copy()
+    
+    if tournament_filter != 'All':
+        filtered = filtered[filtered['tournament'] == tournament_filter]
+    
+    filtered = filtered[filtered['bookmaker_margin'] <= margin_filter]
+    
+    return filtered
 
 
 def display_metrics(df: pd.DataFrame):
@@ -216,37 +243,24 @@ def main():
         
         data_mode = st.radio(
             "Select data source:",
-            [
-                "Demo Mode",
-                "Production Mode",
-                "API Mode (Live)"
-            ],
-            index=0,
-            help="""
-            **Demo Mode**: Simulated realistic data (instant, always works)
-            **Production Mode**: Web scraping from Oddsportal (requires internet)
-            **API Mode**: Real-time data from The Odds API (requires API key)
-            """
+            ["Demo Mode", "Production Mode", "API Mode (Live)"],
+            index=0
         )
         
         st.session_state.data_mode = data_mode
         
         # Mode info
         if data_mode == "Demo Mode":
-            st.info("💡 **Demo Mode**\n\nSimulated data for presentations and testing. Always available, no external dependencies.")
-        
+            st.info("💡 Demo data - instant, always works")
         elif data_mode == "Production Mode":
-            st.warning("⚠️ **Production Mode**\n\nReal web scraping. May require updates if site structure changes.")
-        
+            st.warning("⚠️ Real scraping - may need updates")
         elif data_mode == "API Mode (Live)":
-            st.success("✨ **API Mode**\n\nReal-time data from 200+ bookmakers via The Odds API.")
+            st.success("✨ Real-time API data")
             
-            # API key input
             api_key_input = st.text_input(
                 "The Odds API Key",
                 value=st.session_state.api_key,
-                type="password",
-                help="Get your free API key at https://the-odds-api.com/"
+                type="password"
             )
             
             st.session_state.api_key = api_key_input
@@ -260,193 +274,125 @@ def main():
         if st.button("🔄 Scrape Now", type="primary", use_container_width=True):
             df = scrape_data(data_mode, st.session_state.api_key)
             if not df.empty:
-                st.session_state.matches_df = df
+                st.session_state.raw_matches_df = df  # Store RAW data, don't filter here
         
-        # Last update info
+        # Last update
         if st.session_state.last_scrape_time:
             st.caption(f"Last update: {st.session_state.last_scrape_time.strftime('%H:%M:%S')}")
-        
-        st.markdown("---")
-        
-        # Filters (if data loaded)
-        if st.session_state.matches_df is not None and not st.session_state.matches_df.empty:
-            st.subheader("🔍 Filters")
-            
-            df = st.session_state.matches_df
-            
-            # Tournament filter
-            tournaments = ['All'] + sorted(df['tournament'].unique().tolist())
-            selected_tournament = st.selectbox("Tournament", tournaments)
-            
-            # Margin filter
-            max_margin = st.slider(
-                "Max Margin (%)",
-                min_value=0.0,
-                max_value=float(df['bookmaker_margin'].max()),
-                value=float(df['bookmaker_margin'].max()),
-                step=0.5
-            )
-            
-            # Apply filters
-            filtered_df = df.copy()
-            
-            if selected_tournament != 'All':
-                filtered_df = filtered_df[filtered_df['tournament'] == selected_tournament]
-            
-            filtered_df = filtered_df[filtered_df['bookmaker_margin'] <= max_margin]
-            
-            st.session_state.matches_df = filtered_df
-            
-            st.caption(f"Showing {len(filtered_df)} matches")
     
     # Main content
-    if st.session_state.matches_df is None or st.session_state.matches_df.empty:
-        st.info("👈 Select a data source and click 'Scrape Now' to load matches")
+    if st.session_state.raw_matches_df is None or st.session_state.raw_matches_df.empty:
+        st.info("👈 Select a data source and click 'Scrape Now'")
         
-        # Show data mode descriptions
         col1, col2, col3 = st.columns(3)
         
         with col1:
             st.markdown("### 🎮 Demo Mode")
-            st.markdown("""
-            - ✅ Instant loading
-            - ✅ Always available
-            - ✅ Realistic data
-            - ✅ Perfect for presentations
-            """)
+            st.markdown("- ✅ Instant\n- ✅ Reliable\n- ✅ Realistic data")
         
         with col2:
             st.markdown("### 🌐 Production Mode")
-            st.markdown("""
-            - ✅ Real scraping
-            - ✅ Oddsportal data
-            - ⚠️ May need updates
-            - ✅ Shows technical skills
-            """)
+            st.markdown("- ✅ Real scraping\n- ✅ Oddsportal\n- ⚠️ Requires updates")
         
         with col3:
             st.markdown("### ⚡ API Mode")
-            st.markdown("""
-            - ✅ Real-time data
-            - ✅ 200+ bookmakers
-            - ✅ ATP & WTA
-            - ✅ 500 free req/month
-            """)
+            st.markdown("- ✅ Real-time\n- ✅ 200+ bookmakers\n- ✅ Free tier")
         
         return
     
-    df = st.session_state.matches_df
+    # Apply filters WITHOUT modifying session state
+    raw_df = st.session_state.raw_matches_df
+    
+    # Filters in sidebar
+    with st.sidebar:
+        st.markdown("---")
+        st.subheader("🔍 Filters")
+        
+        tournaments = ['All'] + sorted(raw_df['tournament'].unique().tolist())
+        selected_tournament = st.selectbox("Tournament", tournaments)
+        
+        max_margin = st.slider(
+            "Max Margin (%)",
+            min_value=0.0,
+            max_value=float(raw_df['bookmaker_margin'].max()),
+            value=float(raw_df['bookmaker_margin'].max()),
+            step=0.5
+        )
+    
+    # Apply filters to get display dataframe
+    display_df = apply_filters(raw_df, selected_tournament, max_margin)
+    
+    # Show results count
+    st.caption(f"Showing {len(display_df)} of {len(raw_df)} matches")
     
     # Display mode badge
-    st.markdown(f"**Current Mode:** {get_mode_badge(st.session_state.data_mode)}", unsafe_allow_html=True)
+    st.markdown(f"**Mode:** {get_mode_badge(st.session_state.data_mode)}", unsafe_allow_html=True)
     st.markdown("---")
     
     # Metrics
-    display_metrics(df)
+    display_metrics(display_df)
     
     st.markdown("---")
     
     # Tabs
     tab1, tab2, tab3, tab4 = st.tabs(["📊 Overview", "📈 Analytics", "🎯 Best Value", "💾 Export"])
     
-    # Tab 1: Overview
     with tab1:
         st.header("All Matches")
         
-        # Display matches
-        for idx, match in df.iterrows():
-            with st.container():
-                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-                
-                with col1:
-                    st.markdown(f"**{match['player1']}** vs **{match['player2']}**")
-                    st.caption(f"🏆 {match['tournament']} | 📅 {match['match_time']}")
-                
-                with col2:
-                    st.metric("Player 1", f"{match['odds_player1']:.2f}")
-                
-                with col3:
-                    st.metric("Player 2", f"{match['odds_player2']:.2f}")
-                
-                with col4:
-                    st.metric("Margin", f"{match['bookmaker_margin']:.2f}%")
-                
-                st.caption(f"💰 {match['bookmaker']}")
-                st.markdown("---")
+        for idx, match in display_df.iterrows():
+            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+            
+            with col1:
+                st.markdown(f"**{match['player1']}** vs **{match['player2']}**")
+                st.caption(f"🏆 {match['tournament']}")
+            
+            with col2:
+                st.metric("Player 1", f"{match['odds_player1']:.2f}")
+            
+            with col3:
+                st.metric("Player 2", f"{match['odds_player2']:.2f}")
+            
+            with col4:
+                st.metric("Margin", f"{match['bookmaker_margin']:.2f}%")
+            
+            st.markdown("---")
     
-    # Tab 2: Analytics
     with tab2:
-        st.header("📈 Analytics Dashboard")
+        st.header("📈 Analytics")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            st.plotly_chart(plot_margin_distribution(df), use_container_width=True)
+            st.plotly_chart(plot_margin_distribution(display_df), use_container_width=True)
         
         with col2:
-            st.plotly_chart(plot_odds_comparison(df), use_container_width=True)
-        
-        # Tournament breakdown
-        st.subheader("Tournament Breakdown")
-        tournament_stats = df.groupby('tournament').agg({
-            'bookmaker_margin': ['mean', 'min', 'count']
-        }).round(2)
-        
-        st.dataframe(tournament_stats, use_container_width=True)
+            st.plotly_chart(plot_odds_comparison(display_df), use_container_width=True)
     
-    # Tab 3: Best Value
     with tab3:
         st.header("🎯 Best Value Bets")
-        st.caption("Matches with lowest bookmaker margins (better value for bettors)")
         
-        best_value = df.nsmallest(10, 'bookmaker_margin')
+        best_value = display_df.nsmallest(10, 'bookmaker_margin')
         
         for idx, match in best_value.iterrows():
-            with st.expander(f"✨ {match['player1']} vs {match['player2']} - {match['bookmaker_margin']:.2f}% margin"):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown(f"""
-                    **Match Details:**
-                    - Tournament: {match['tournament']}
-                    - Time: {match['match_time']}
-                    - Bookmaker: {match['bookmaker']}
-                    """)
-                
-                with col2:
-                    st.markdown(f"""
-                    **Odds:**
-                    - {match['player1']}: **{match['odds_player1']:.2f}**
-                    - {match['player2']}: **{match['odds_player2']:.2f}**
-                    - Margin: **{match['bookmaker_margin']:.2f}%**
-                    """)
+            with st.expander(f"✨ {match['player1']} vs {match['player2']} - {match['bookmaker_margin']:.2f}%"):
+                st.markdown(f"""
+                **Tournament:** {match['tournament']}  
+                **Odds:** {match['odds_player1']:.2f} / {match['odds_player2']:.2f}  
+                **Margin:** {match['bookmaker_margin']:.2f}%
+                """)
     
-    # Tab 4: Export
     with tab4:
         st.header("💾 Export Data")
         
-        col1, col2 = st.columns(2)
+        csv_data = display_df.to_csv(index=False)
         
-        with col1:
-            st.subheader("CSV Export")
-            
-            csv_exporter = CSVExporter()
-            csv_data = df.to_csv(index=False)
-            
-            st.download_button(
-                label="📥 Download CSV",
-                data=csv_data,
-                file_name=f"tennis_odds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-        
-        with col2:
-            st.subheader("Excel Export")
-            st.info("Excel export with formatting available via CLI: `python main.py --format excel`")
-        
-        st.markdown("---")
-        st.caption(f"Dataset: {len(df)} matches | Mode: {st.session_state.data_mode}")
+        st.download_button(
+            label="📥 Download CSV",
+            data=csv_data,
+            file_name=f"tennis_odds_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv"
+        )
 
 
 if __name__ == "__main__":
