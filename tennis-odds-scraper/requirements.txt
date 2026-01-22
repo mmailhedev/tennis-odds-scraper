@@ -25,3 +25,6 @@ schedule==1.2.0
 # Optional: for advanced scraping (uncomment if needed)
 # selenium==4.16.0
 # playwright==1.41.0
+
+# Environment variables management
+python-dotenv==1.0.0
